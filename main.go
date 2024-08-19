@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"encoding/json"
+	"database/sql"
 	"errors"
 	"log"
 	"net/http"
@@ -12,41 +12,38 @@ import (
 	"time"
 
 	"github.com/joho/godotenv"
+	"github.com/kalmod/blog_agg/internal/database"
+	_ "github.com/lib/pq"
 )
 
-func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
-	w.Header().Set("Content-Type", "application/json")
-	data, err := json.Marshal(payload)
-	if err != nil {
-		log.Printf("Error marshaling JSON: %s", err)
-		w.WriteHeader(500)
-		return
-	}
-	w.WriteHeader(code)
-	w.Write(data)
-}
-
-func respondWithError(w http.ResponseWriter, code int, msg string) {
-	if code > 499 {
-		log.Printf("Responding with 5XX error: %s", msg)
-	}
-	type errorJSON struct {
-		Error string `json:"error"`
-	}
-	respondWithJSON(w, code, errorJSON{Error: msg})
+type apiConfig struct {
+	DB *database.Queries
 }
 
 func main() {
 	err := godotenv.Load(".env")
 	if err != nil {
-		log.Fatalf("Error: %v\n", err)
+		log.Fatalf("ENV Error: %v\n", err)
 	}
 	PORT := os.Getenv("PORT")
+	DBURL := os.Getenv("DB_CONNECTION")
+
+	db, err := sql.Open("postgres", DBURL)
+	if err != nil {
+		log.Fatalf("DB Error: %v\n", err)
+	}
+
+	dbQueries := database.New(db)
+	dbConfig := apiConfig{DB: dbQueries}
+
 	mux := http.NewServeMux()
 
 	// Init Handlers
 	mux.HandleFunc("GET /v1/healthz", healthHandler)
 	mux.HandleFunc("GET /v1/err", errorHandler)
+
+	mux.HandleFunc("POST /v1/users", dbConfig.postUsersHandler)
+	mux.HandleFunc("GET /v1/users", dbConfig.getUsersHandler)
 
 	server := http.Server{
 		Addr:    ":" + PORT,
