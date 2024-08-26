@@ -28,3 +28,14 @@ func decodeUsers(r *http.Request) (Users, error) {
 
 	return newUser, nil
 }
+
+func myDecoder[T any](r *http.Request) (T, error) {
+	var decodedStruct T
+	dec := json.NewDecoder(r.Body)
+	err := dec.Decode(&decodedStruct)
+	if err != nil {
+		return decodedStruct, err
+	}
+
+	return decodedStruct, nil
+}

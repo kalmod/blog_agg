@@ -42,8 +42,16 @@ func main() {
 	mux.HandleFunc("GET /v1/healthz", healthHandler)
 	mux.HandleFunc("GET /v1/err", errorHandler)
 
+	// users
 	mux.HandleFunc("POST /v1/users", dbConfig.postUsersHandler)
-	mux.HandleFunc("GET /v1/users", dbConfig.getUsersHandler)
+	mux.HandleFunc("GET /v1/users", dbConfig.middlewareAuth(dbConfig.getUsersHandler))
+	// feeds
+	mux.HandleFunc("POST /v1/feeds", dbConfig.middlewareAuth(dbConfig.postFeedsHandler))
+	mux.HandleFunc("GET /v1/feeds", dbConfig.getAllFeeds)
+	// feed_follows
+	mux.HandleFunc("POST /v1/feed_follows", dbConfig.middlewareAuth(dbConfig.postFeedFollows))
+	mux.HandleFunc("DELETE /v1/feed_follows/{feedFollowID}", dbConfig.deleteFeedFollows)
+	mux.HandleFunc("GET /v1/feed_follows", dbConfig.middlewareAuth(dbConfig.getFeedFollowsForUser))
 
 	server := http.Server{
 		Addr:    ":" + PORT,
