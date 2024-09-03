@@ -58,6 +58,9 @@ func main() {
 		Handler: mux,
 	}
 
+	ticker := time.NewTicker(60 * time.Second)
+	done := make(chan bool)
+
 	// https://dev.to/mokiat/proper-http-shutdown-in-go-3fji
 	go func() {
 		log.Println("Starting Server....")
@@ -68,12 +71,25 @@ func main() {
 		log.Println("Stopped Server.")
 	}()
 
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				dbConfig.FeedWorker(2)
+			case <-done:
+				return
+			}
+		}
+	}()
+
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 	<-sigChan
 
 	shutdownCtx, shutdownRelease := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownRelease()
+	ticker.Stop()
+	done <- true
 
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		log.Fatalf("HTPP close error: %v", err)
