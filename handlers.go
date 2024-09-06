@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -66,4 +67,23 @@ func (db *apiConfig) middlewareAuth(handler authedHandler) http.HandlerFunc {
 			}
 			handler(w, r, userInfo)
 		})
+}
+
+// Posts
+func (db *apiConfig) getPosts(w http.ResponseWriter, r *http.Request, user database.User) {
+	type limitJSON struct {
+		Limit int `json:"limit"`
+	}
+	var limitInfo limitJSON
+	limitInfo, err := myDecoder[limitJSON](r)
+	if err != nil {
+		fmt.Println(err.Error())
+		limitInfo = limitJSON{Limit: 5}
+	}
+	posts, err := db.DB.GetPosts(r.Context(), database.GetPostsParams{UserID: user.ID, Limit: int32(limitInfo.Limit)})
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Error retrieving posts")
+		return
+	}
+	respondWithJSON(w, http.StatusOK, posts)
 }

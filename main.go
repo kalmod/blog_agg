@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -27,6 +28,10 @@ func main() {
 	}
 	PORT := os.Getenv("PORT")
 	DBURL := os.Getenv("DB_CONNECTION")
+	REFRESH, converr := strconv.Atoi(os.Getenv("REFRESH_TIME"))
+	if converr != nil {
+		REFRESH = 60
+	}
 
 	db, err := sql.Open("postgres", DBURL)
 	if err != nil {
@@ -52,13 +57,15 @@ func main() {
 	mux.HandleFunc("POST /v1/feed_follows", dbConfig.middlewareAuth(dbConfig.postFeedFollows))
 	mux.HandleFunc("DELETE /v1/feed_follows/{feedFollowID}", dbConfig.deleteFeedFollows)
 	mux.HandleFunc("GET /v1/feed_follows", dbConfig.middlewareAuth(dbConfig.getFeedFollowsForUser))
+	// posts
+	mux.HandleFunc("GET /v1/posts", dbConfig.middlewareAuth(dbConfig.getPosts))
 
 	server := http.Server{
 		Addr:    ":" + PORT,
 		Handler: mux,
 	}
 
-	ticker := time.NewTicker(60 * time.Second)
+	ticker := time.NewTicker(time.Duration(REFRESH) * time.Second)
 	done := make(chan bool)
 
 	// https://dev.to/mokiat/proper-http-shutdown-in-go-3fji
